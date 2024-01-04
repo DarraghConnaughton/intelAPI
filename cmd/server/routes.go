@@ -9,7 +9,7 @@ var routes = []RouteInfo{
 	{
 		HandlerFunc: GetBlocklistHandler,
 		//Path:        fmt.Sprintf("%s/getBlocklist", PathStart),
-		Path:        "/",
+		Path:        "/blocklist",
 		Description: "Get the current ip blocklist.",
 	},
 }
@@ -20,7 +20,6 @@ type RouteInfo struct {
 	Description string
 }
 
-// DefineRoutes initializes and returns a slice of RouteInfo.
 func RetrieveRoutes() []RouteInfo {
 	return routes
 }

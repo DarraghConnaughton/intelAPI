@@ -39,7 +39,6 @@ type AbuseInfo struct {
 	LastReportedAt       time.Time `json:"lastReportedAt,omitempty"`
 }
 
-// extractText extracts the text content from a given node
 func extractText(n *html.Node) string {
 	var textContent string
 	if n.Type == html.TextNode {
@@ -53,7 +52,6 @@ func extractText(n *html.Node) string {
 
 func extractContentByClass(n *html.Node, targetClass string) string {
 	var result string
-
 	var traverse func(*html.Node)
 	traverse = func(node *html.Node) {
 		if node.Type == html.ElementNode && hasClass(node, targetClass) {
@@ -63,7 +61,6 @@ func extractContentByClass(n *html.Node, targetClass string) string {
 			traverse(c)
 		}
 	}
-
 	traverse(n)
 	return result
 }
@@ -94,7 +91,6 @@ func safeRetrieveBadIPAddresses(httpsClient https.HTTPS, hashes []string, urls [
 		}
 	}
 	return ipSuperset, nil
-
 }
 
 func containsHash(hashes []string, md5hash string) bool {
@@ -107,48 +103,40 @@ func containsHash(hashes []string, md5hash string) bool {
 }
 
 func abuseIpDb(url string, httpsClient https.HTTPS, header http.Header) ([]string, error) {
-
 	header.Set("Key", common.ApiKey)
 	header.Set("Accept", "application/json")
 	resp, err := httpsClient.Get(url, header)
 	if err != nil {
 		return nil, err
 	}
-
 	var abuseInfo AbuseIpDb
 	if err := json.Unmarshal(resp, &abuseInfo); err != nil {
 		return nil, err
 	}
-
 	var ips []string
 	for _, info := range abuseInfo.Data {
 		if info.AbuseConfidenceScore > 60 {
 			ips = append(ips, info.IPAddress)
 		}
 	}
-
 	return ips, nil
 }
 
 func LaunchWatchDog(errorChan chan error, state *stateutil.StateManager) {
 	blDSC := datasource.DataSourceConfig{
-		URL:    "https://www.blocklist.de/en/export.html",
+		URL:    common.BlocklistDeAPI,
 		HTTPS:  https.HTTPS{},
 		Header: http.Header{},
 		F:      blocklistDe,
 	}
-	//abuseDSC := datasource.DataSourceConfig{
-	//	URL:    apiUrl,
-	//	HTTPS:  https.HTTPS{},
-	//	Header: http.Header{},
-	//	F:      abuseIpDb,
-	//}
-
-	// Pass ticker from main
-	//tickDuration := 12 * time.Hour
+	abuseDSC := datasource.DataSourceConfig{
+		URL:    common.ApiUrl,
+		HTTPS:  https.HTTPS{},
+		Header: http.Header{},
+		F:      abuseIpDb,
+	}
 	tickDuration := 10 * time.Second
 	ticker := time.NewTicker(tickDuration)
-
 	go func() {
 		for {
 			select {
@@ -160,14 +148,12 @@ func LaunchWatchDog(errorChan chan error, state *stateutil.StateManager) {
 					os.Exit(1)
 				}
 				ipSuperset = append(ipSuperset, ips...)
-
-				//ips, err = abuseDSC.RetrieveIPAddress()
-				//if err != nil {
-				//	errorChan <- fmt.Errorf("[-]Data source retrieval failed: {url: %s}", abuseDSC.URL)
-				//	os.Exit(1)
-				//}
+				ips, err = abuseDSC.RetrieveIPAddress()
+				if err != nil {
+					errorChan <- fmt.Errorf("[-]Data source retrieval failed: {url: %s}", abuseDSC.URL)
+					os.Exit(1)
+				}
 				ipSuperset = append(ipSuperset, ips...)
-				log.Println("we make it here")
 				state.UpdateBlocklist(prune(ipSuperset))
 			}
 		}
@@ -188,7 +174,6 @@ func prune(superset []string) []string {
 }
 
 func blocklistDe(url string, httpsClient https.HTTPS, header http.Header) ([]string, error) {
-	//resp, err := httpsClient.Get("https://www.blocklist.de/en/export.html", header)
 	resp, err := httpsClient.Get(url, header)
 	if err != nil {
 		return nil, err
@@ -197,7 +182,6 @@ func blocklistDe(url string, httpsClient https.HTTPS, header http.Header) ([]str
 	if err != nil {
 		return nil, err
 	}
-	// Extract content from elements with class="newscontent"
 	content := extractContentByClass(doc, "newscontent")
 	ipsuperSet, err := safeRetrieveBadIPAddresses(httpsClient,
 		regexp.MustCompile(`[0-9a-fA-F]{32}`).FindAllString(content, -1),
