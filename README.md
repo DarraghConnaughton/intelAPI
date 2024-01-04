@@ -1,2 +1,2 @@
-# watchdog
-The watchdog exposes a curated list of suspected/known bad IP addresses. 
+# IntelAPI
+The IntelAPI exposes a curated list of suspected/known bad IP addresses. 
