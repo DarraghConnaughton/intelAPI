@@ -17,6 +17,7 @@ func GetBlocklistHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(globalState.ReadBlocklist())
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
+	log.Println(globalState.ReadBlocklist())
 	if _, err := w.Write([]byte(strings.Join(globalState.ReadBlocklist(), "\n"))); err != nil {
 		log.Println(err)
 	}
@@ -29,6 +30,7 @@ func loadRoutes(routeInfo []RouteInfo) {
 }
 
 func StartServer(port int, errorChan chan error, state *stateutil.StateManager) {
+	log.Println("[+] Web Server Initialisation. Gathering routes.")
 	globalState = state
 	loadRoutes(RetrieveRoutes())
 	err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil)

@@ -123,6 +123,7 @@ func abuseIpDb(url string, httpsClient https.HTTPS, header http.Header) ([]strin
 }
 
 func LaunchWatchDog(errorChan chan error, state *stateutil.StateManager) {
+	log.Println("[+] Watch Dog Starting [+]")
 	blDSC := datasource.DataSourceConfig{
 		URL:    common.BlocklistDeAPI,
 		HTTPS:  https.HTTPS{},
@@ -141,16 +142,19 @@ func LaunchWatchDog(errorChan chan error, state *stateutil.StateManager) {
 		for {
 			select {
 			case <-ticker.C:
+				log.Println("[/] watchdog: tick")
 				var ipSuperset []string
-				ips, err := blDSC.RetrieveIPAddress()
+				ips, err := abuseDSC.RetrieveIPAddress()
 				if err != nil {
-					errorChan <- fmt.Errorf("[-]Data source retrieval failed: {url: %s}\n[ERROR]: %s", blDSC.URL, err.Error())
+					errorChan <- fmt.Errorf("[-]Data source retrieval failed: {url: %s}", abuseDSC.URL)
+					log.Println("[-]Something went wrong, watchdog terminating. EP2.")
 					os.Exit(1)
 				}
 				ipSuperset = append(ipSuperset, ips...)
-				ips, err = abuseDSC.RetrieveIPAddress()
+				ips, err = blDSC.RetrieveIPAddress()
 				if err != nil {
-					errorChan <- fmt.Errorf("[-]Data source retrieval failed: {url: %s}", abuseDSC.URL)
+					errorChan <- fmt.Errorf("[-]Data source retrieval failed: {url: %s}\n[ERROR]: %s", blDSC.URL, err.Error())
+					log.Println("[-]Something went wrong, watchdog terminating. EP2.")
 					os.Exit(1)
 				}
 				ipSuperset = append(ipSuperset, ips...)

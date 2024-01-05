@@ -1,7 +1,6 @@
 package stateutil
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -17,9 +16,7 @@ func (sm *StateManager) UpdateBlocklist(bl []string) {
 }
 
 func (sm *StateManager) ReadBlocklist() []string {
-	fmt.Println("we begin reading")
 	for sm.isWriting {
-		fmt.Println("are we stuck here?")
 		time.Sleep(1 * time.Second)
 	}
 	return sm.Blocklist
