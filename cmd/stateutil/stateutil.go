@@ -7,6 +7,8 @@ import (
 type StateManager struct {
 	Blocklist []string
 	isWriting bool
+	ErrorChan chan error
+	Mock      bool
 }
 
 func (sm *StateManager) UpdateBlocklist(bl []string) {
@@ -20,4 +22,10 @@ func (sm *StateManager) ReadBlocklist() []string {
 		time.Sleep(1 * time.Second)
 	}
 	return sm.Blocklist
+}
+
+func New() StateManager {
+	return StateManager{
+		ErrorChan: make(chan error, 1),
+	}
 }
