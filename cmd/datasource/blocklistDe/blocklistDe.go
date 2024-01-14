@@ -11,11 +11,12 @@ import (
 	"strings"
 )
 
-// IPAddressRetriever is an interface for retrieving an IP address.
 type BlocklistDe struct {
 	types.DataSourceInterface
 	DataSource  types.DataSource
 	TargetClass string
+	MD5Regex    string
+	URLRegex    string
 }
 
 func (bld *BlocklistDe) ConstructHttpHeader() {
@@ -23,32 +24,36 @@ func (bld *BlocklistDe) ConstructHttpHeader() {
 }
 
 func (bld *BlocklistDe) RetrieveIPAddress() ([]string, error) {
-	bld.ConstructHttpHeader()
-	resp, err := bld.DataSource.HTTPS.Get(bld.DataSource.URL, bld.DataSource.Header)
+	resp, err := bld.DataSource.HTTPS.GenericMethod(bld.DataSource.URL)
 	if err != nil {
 		return nil, err
 	}
-	doc, err := html.Parse(strings.NewReader(string(resp)))
+	doc, err := html.Parse(strings.NewReader(resp.Body))
 	if err != nil {
 		return nil, err
 	}
 	content := helper.ExtractContentByClass(doc, "newscontent")
 	ipsuperSet, err := helper.SafeRetrieveBadIPAddresses(bld.DataSource.HTTPS,
-		regexp.MustCompile(`[0-9a-fA-F]{32}`).FindAllString(content, -1),
-		regexp.MustCompile(`https?://[^\s"]+\.txt`).FindAllString(content, -1))
+		regexp.MustCompile(bld.MD5Regex).FindAllString(content, -1),
+		regexp.MustCompile(bld.URLRegex).FindAllString(content, -1))
 	if err != nil {
 		return nil, err
 	}
 	return ipsuperSet, nil
 }
 
-func New() BlocklistDe {
+func New(tlsconfig https.TLSConfig) BlocklistDe {
 	return BlocklistDe{
 		DataSource: types.DataSource{
-			HTTPS:  https.HTTPS{},
-			Header: http.Header{},
-			URL:    common.BlocklistDeAPI,
+			HTTPS: https.HTTPS{
+				Header:    http.Header{},
+				Method:    "GET",
+				TLSConfig: tlsconfig,
+			},
+			URL: common.BlocklistDeAPI,
 		},
 		TargetClass: "newscontent",
+		MD5Regex:    "[0-9a-fA-F]{32}",
+		URLRegex:    "https?://[^\\s\"]+\\.txt",
 	}
 }

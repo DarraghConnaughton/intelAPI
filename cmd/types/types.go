@@ -12,6 +12,13 @@ type (
 		Data []AbuseInfo `json:"data"`
 	}
 
+	AbuseInfo struct {
+		IPAddress            string    `json:"ipAddress"`
+		CountryCode          string    `json:"countryCode,omitempty"`
+		AbuseConfidenceScore int       `json:"abuseConfidenceScore,omitempty"`
+		LastReportedAt       time.Time `json:"lastReportedAt,omitempty"`
+	}
+
 	BlocklistEntry struct {
 		Type        string    `json:"type"`
 		Updated     time.Time `json:"updated"`
@@ -21,17 +28,9 @@ type (
 		MD5         string    `json:"md5"`
 	}
 
-	AbuseInfo struct {
-		IPAddress            string    `json:"ipAddress"`
-		CountryCode          string    `json:"countryCode,omitempty"`
-		AbuseConfidenceScore int       `json:"abuseConfidenceScore,omitempty"`
-		LastReportedAt       time.Time `json:"lastReportedAt,omitempty"`
-	}
-
 	DataSource struct {
-		Header http.Header
-		HTTPS  https.HTTPS
-		URL    string
+		HTTPS https.HTTPS
+		URL   string
 	}
 )
 
@@ -41,15 +40,12 @@ type DataSourceInterface interface {
 	ConstructHttpHeader()
 }
 
-//type Server struct {
-//	state         *stateutil.StateManager
-//	routeConfiguredFlag bool
-//}
-
 // IPAddressRetriever is an interface for retrieving an IP address.
 type ServerInterface interface {
 	Start(int, *stateutil.StateManager)
 	LoadRoutes([]RouteInfo)
+	//BindAndServe(string, http.Handler) error
+	ListenAndServe(string, func(string, http.Handler) error) error
 }
 
 type RouteInfo struct {

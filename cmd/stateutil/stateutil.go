@@ -1,26 +1,27 @@
 package stateutil
 
 import (
-	"time"
+	"sync"
 )
 
 type StateManager struct {
 	Blocklist []string
-	isWriting bool
+	mu        sync.Mutex
 	ErrorChan chan error
 	Mock      bool
 }
 
 func (sm *StateManager) UpdateBlocklist(bl []string) {
-	sm.isWriting = true
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
 	sm.Blocklist = bl
-	sm.isWriting = false
 }
 
 func (sm *StateManager) ReadBlocklist() []string {
-	for sm.isWriting {
-		time.Sleep(1 * time.Second)
-	}
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
 	return sm.Blocklist
 }
 

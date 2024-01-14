@@ -2,46 +2,73 @@ package https
 
 import (
 	"crypto/tls"
-	"fmt"
+	"crypto/x509"
 	"io"
+	"io/ioutil"
 	"net/http"
 )
 
-type HTTPS struct{}
+type TLSConfig struct {
+	CAFile   string
+	CertFile string
+	KeyFile  string
+}
 
-func (h *HTTPS) Get(hostname string, header http.Header) ([]byte, error) {
-	tr := &http.Transport{
+func (config *TLSConfig) GetTLSConfig() (*tls.Config, error) {
+	// Load CA certificate
+	caCert, err := ioutil.ReadFile(config.CAFile)
+	if err != nil {
+		return nil, err
+	}
+	// Load certificate and private key
+	cert, err := tls.LoadX509KeyPair(config.CertFile, config.KeyFile)
+	if err != nil {
+		return &tls.Config{}, err
+	}
+	// Create a certificate pool and add the CA certificate
+	caCertPool := x509.NewCertPool()
+	caCertPool.AppendCertsFromPEM(caCert)
+	return &tls.Config{
+		RootCAs:      caCertPool,
+		Certificates: []tls.Certificate{cert},
+	}, nil
+}
+
+type HTTPS struct {
+	TLSConfig TLSConfig   `json:"tls_config"`
+	Header    http.Header `json:"header"`
+	Method    string      `json:"method"`
+	Body      io.Reader   `json:"body"`
+}
+
+func (h *HTTPS) GenericMethod(hostname string) (HTTPResponse, error) {
+	serverResponse := newResponse()
+	// Prepare Request
+	req, err := http.NewRequest(h.Method, hostname, h.Body)
+	if err != nil {
+		return serverResponse, err
+	}
+	req.Header = h.Header
+	client := &http.Client{Transport: &http.Transport{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}}
+
+	//*************
+	// To be enabled.
+	//config, err := h.TLSConfig.GetTLSConfig()
+	//if err != nil {}
+	//client := &http.Client{Transport: &http.Transport{
+	//	TLSClientConfig: config,
+	//}}
+	//to be enabed
+	//*************
+
+	// Send Request
+	if resp, err := client.Do(req); err != nil {
+		return serverResponse, err
+	} else {
+		serverResponse.extractRawBytes(resp)
+		serverResponse.extractResponseDetails(resp)
+		return serverResponse, nil
 	}
-	client := &http.Client{Transport: tr}
-
-	//if strings.Contains(hostname, "http:") {
-	//	hostname = strings.ReplaceAll(hostname, "http:", "https:")
-	//} else if !strings.Contains(hostname, "https") {
-	//	hostname = "https://" + hostname
-	//}
-
-	req, err := http.NewRequest("GET", hostname, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header = header
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-
-	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return nil, fmt.Errorf(
-			"Unsuccessful status encountered: [%s:%d]", body, resp.StatusCode)
-	}
-
-	return body, nil
 }

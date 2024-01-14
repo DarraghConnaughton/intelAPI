@@ -6,21 +6,20 @@ import (
 	"intelligenceagent/cmd/types"
 	"log"
 	"net/http"
-	"os"
 	"strings"
 )
 
 // HTTPServer extends Server and implements ServerInterface.
 type HTTPServer struct {
 	types.ServerInterface
-	state     *stateutil.StateManager
-	routeInfo []types.RouteInfo
+	state        *stateutil.StateManager
+	routeInfo    []types.RouteInfo
+	BindAndServe func(string, http.Handler) error
 }
 
-func GetBlocklistHandler(w http.ResponseWriter, r *http.Request, state *stateutil.StateManager) {
+func GetBlocklistHandler(w http.ResponseWriter, _ *http.Request, state *stateutil.StateManager) {
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusOK)
-	log.Println(state.ReadBlocklist())
 	if _, err := w.Write([]byte(strings.Join(state.ReadBlocklist(), "\n"))); err != nil || state.Mock {
 		log.Println(err)
 		http.Error(w, "", http.StatusInternalServerError)
@@ -29,10 +28,18 @@ func GetBlocklistHandler(w http.ResponseWriter, r *http.Request, state *stateuti
 
 func (s *HTTPServer) LoadRoutes(state *stateutil.StateManager) {
 	for _, route := range s.routeInfo {
-		http.HandleFunc(route.Path, func(w http.ResponseWriter, r *http.Request) {
-			route.HandlerFunc(w, r, state)
+		localRoute := route
+		http.HandleFunc(localRoute.Path, func(w http.ResponseWriter, r *http.Request) {
+			localRoute.HandlerFunc(w, r, state)
 		})
 	}
+}
+
+func (s *HTTPServer) ListenAndServe(bind string, listenAndServe func(string, http.Handler) error) error {
+	if err := listenAndServe(bind, nil); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *HTTPServer) Start(port int) {
@@ -40,21 +47,19 @@ func (s *HTTPServer) Start(port int) {
 	for {
 		select {
 		default:
-			if err := http.ListenAndServe(fmt.Sprintf(":%d", port), nil); err != nil {
+			if err := s.ListenAndServe(fmt.Sprintf(":%d", port), s.BindAndServe); err != nil {
 				s.state.ErrorChan <- err
-				os.Exit(1)
+				return
 			}
 		}
 	}
 }
 
 func New(state *stateutil.StateManager, routes []types.RouteInfo, loadRoutes bool) HTTPServer {
-	fmt.Println("STATE!!!!")
-	fmt.Println(state)
-	fmt.Println("STATE!!!!")
 	httpServer := HTTPServer{
-		state:     state,
-		routeInfo: routes,
+		state:        state,
+		routeInfo:    routes,
+		BindAndServe: http.ListenAndServe,
 	}
 	if loadRoutes {
 		httpServer.LoadRoutes(state)

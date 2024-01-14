@@ -1,22 +1,35 @@
 package server
 
 import (
+	"errors"
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"intelligenceagent/cmd/https"
 	"intelligenceagent/cmd/stateutil"
+	"log"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
 )
 
+//	type MockHTTPS struct {
+//		types.ServerInterface
+//	}
+func mockListenAndServe(bind string, handler http.Handler) error {
+	return errors.New("error")
+}
+
 func retrieveBlocklist(port int) []string {
-	fmt.Println(fmt.Sprintf("http://127.0.0.1:%d/blocklist", port))
-	httpsClient := https.HTTPS{}
-	resp, _ := httpsClient.Get(
-		fmt.Sprintf("http://127.0.0.1:%d/blocklist", port), http.Header{})
-	return strings.Split(string(resp), "\n")
+	httpsClient := https.HTTPS{
+		Header:    http.Header{},
+		TLSConfig: https.TLSConfig{},
+		Method:    "GET",
+	}
+
+	resp, _ := httpsClient.GenericMethod(
+		fmt.Sprintf("http://127.0.0.1:%d/blocklist", port))
+	return strings.Split(resp.Body, "\n")
 }
 
 func TestServerFunctionality(t *testing.T) {
@@ -30,6 +43,20 @@ func TestServerFunctionality(t *testing.T) {
 
 	tmpState.Mock = true
 	tmpState.UpdateBlocklist([]string{})
+
 	// Strange output due to writer successfully writing, followed by artificial triggering of error condition.
 	assert.Equal(t, []string([]string{"", ""}), retrieveBlocklist(8080))
+
+	server2 := New(&tmpState, Routes, false)
+	server2.BindAndServe = mockListenAndServe
+
+	go server2.Start(8081)
+	// Use select to wait for either an error or a timeout
+	select {
+	case _ = <-tmpState.ErrorChan:
+		// Handle the error or check for nil if needed
+		log.Println("encountered error as expected.")
+	case <-time.After(100 * time.Millisecond):
+		t.Error("expected error when launching server with mock ListenAndServe function")
+	}
 }

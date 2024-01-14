@@ -8,7 +8,6 @@ import (
 	"golang.org/x/net/html"
 	"intelligenceagent/cmd/https"
 	"log"
-	"net/http"
 	"sort"
 	"strings"
 )
@@ -48,18 +47,21 @@ func hasClass(n *html.Node, targetClass string) bool {
 	return false
 }
 
+func calculateMD5(data []byte) string {
+	hash := md5.New()
+	hash.Write(data)
+	return hex.EncodeToString(hash.Sum(nil))
+}
+
 func SafeRetrieveBadIPAddresses(httpsClient https.HTTPS, hashes []string, urls []string) ([]string, error) {
 	var ipSuperset []string
 	for _, url := range urls {
 		log.Println(fmt.Sprintf("[+] downloading file contents from %s", url))
-		resp, err := httpsClient.Get(url, http.Header{})
+		resp, err := httpsClient.GenericMethod(url)
 		if err == nil {
-			hash := md5.New()
-			hash.Write(resp)
-			tmp := hex.EncodeToString(hash.Sum(nil))
-			if containsHash(hashes, tmp) {
+			if containsHash(hashes, calculateMD5(resp.Bytes)) {
 				log.Println("[+] hash of downloaded contents matches expected hash, adding to blocklist.")
-				ipSuperset = append(ipSuperset, strings.Split(string(resp), "\n")...)
+				ipSuperset = append(ipSuperset, strings.Split(resp.Body, "\n")...)
 			} else {
 				log.Println("[/] warning: file hash not found in hash superset.")
 			}

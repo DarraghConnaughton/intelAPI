@@ -6,11 +6,10 @@ import (
 	"intelligenceagent/cmd/stateutil"
 	"intelligenceagent/cmd/types"
 	"log"
-	"os"
 	"time"
 )
 
-func MonitorErrorChannel(s *stateutil.StateManager, hardfail bool) {
+func MonitorErrorChannel(s *stateutil.StateManager, hardfail bool) error {
 	for {
 		select {
 		case err := <-s.ErrorChan:
@@ -18,7 +17,7 @@ func MonitorErrorChannel(s *stateutil.StateManager, hardfail bool) {
 				log.Println("[-]received an error from the goroutine:", err)
 				if hardfail {
 					log.Println("[-] hard fail mode enabled, exiting main goroutine.")
-					os.Exit(1)
+					return err
 				}
 			}
 		}

@@ -17,7 +17,6 @@ FROM ubuntu:latest
 WORKDIR /cmd
 # Copy the binary from the builder image to the final image
 COPY --from=builder /cmd/releases/intelagent /cmd/
-#COPY --from=builder /cmd/data/ /cmd/
 
 # Create a non-root user and set permissions
 RUN groupadd -r intelagent && useradd -r -g intelagent intelagent

@@ -10,11 +10,10 @@ import (
 	"os"
 )
 
-// IPAddressRetriever is an interface for retrieving an IP address.
 type AbuseIpDb struct {
 	types.DataSourceInterface
-	DataSource          types.DataSource
 	ConfidenceThreshold int
+	DataSource          types.DataSource
 	SecretLabel         string
 }
 
@@ -23,20 +22,17 @@ func (abuseIp *AbuseIpDb) ConstructHttpHeader() {
 	if len(apiKey) == 0 {
 		log.Println("[-] warning: no API key provided for abuseIpDb API.")
 	}
-	abuseIp.DataSource.Header.Set("Key", apiKey)
-	abuseIp.DataSource.Header.Set("Accept", "application/json")
+	abuseIp.DataSource.HTTPS.Header.Set("Key", apiKey)
+	abuseIp.DataSource.HTTPS.Header.Set("Accept", "application/json")
 }
 
 func (abuseIp *AbuseIpDb) RetrieveIPAddress() ([]string, error) {
-	abuseIp.ConstructHttpHeader()
-	resp, err := abuseIp.DataSource.HTTPS.Get(
-		abuseIp.DataSource.URL, abuseIp.DataSource.Header)
+	resp, err := abuseIp.DataSource.HTTPS.GenericMethod(abuseIp.DataSource.URL)
 	if err != nil {
 		return nil, err
 	}
-
 	var abuseInfo types.AbuseIpDbData
-	if err := json.Unmarshal(resp, &abuseInfo); err != nil {
+	if err := json.Unmarshal(resp.Bytes, &abuseInfo); err != nil {
 		return nil, err
 	}
 	var ips []string
@@ -48,14 +44,19 @@ func (abuseIp *AbuseIpDb) RetrieveIPAddress() ([]string, error) {
 	return ips, nil
 }
 
-func New() AbuseIpDb {
-	return AbuseIpDb{
+func New(config https.TLSConfig) AbuseIpDb {
+	aidb := AbuseIpDb{
 		DataSource: types.DataSource{
-			HTTPS:  https.HTTPS{},
-			Header: http.Header{},
-			URL:    common.AbuseIpDbApiUrl,
+			HTTPS: https.HTTPS{
+				Header:    http.Header{},
+				Method:    "GET",
+				TLSConfig: config,
+			},
+			URL: common.AbuseIpDbApiUrl,
 		},
 		ConfidenceThreshold: 60,
 		SecretLabel:         "ABUSEIPDB_API_TOKEN",
 	}
+	aidb.ConstructHttpHeader()
+	return aidb
 }

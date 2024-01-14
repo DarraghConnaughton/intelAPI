@@ -3,7 +3,6 @@
 BINARY_NAME = intelagent
 
 build:
-	make update-readme
 	make clean
 	mkdir releases
 	GOOS=linux go build -o ./releases/$(BINARY_NAME) ./cmd
@@ -21,5 +20,5 @@ test:
 	go test -v ./...
 
 coverage:
-	go test -coverprofile=coverage.out ./...
+	go test -race -v -coverprofile=coverage.out ./... | tee coverage.report
 	go tool cover -html=coverage.out -o coverage.html
